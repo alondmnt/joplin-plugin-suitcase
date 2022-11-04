@@ -34,17 +34,17 @@ function toSentenceCase(text: string): string {
 joplin.plugins.register({
 	onStart: async function() {
 		joplin.commands.register({
-			name: 'suitcase.upper',
-			label: 'UPPER CASE',
-			execute: async () => {
-				apply_case('upper');
-			}
-		});
-		joplin.commands.register({
 			name: 'suitcase.lower',
 			label: 'lower case',
 			execute: async () => {
 				apply_case('lower');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.upper',
+			label: 'UPPER CASE',
+			execute: async () => {
+				apply_case('upper');
 			}
 		});
 		joplin.commands.register({
@@ -63,12 +63,12 @@ joplin.plugins.register({
 		});
 		await joplin.views.menus.create('suitcaseMenu', 'Capitalization', [
 			{
-			  label: 'UPPER CASE',
-			  commandName: 'suitcase.upper',
-			},
-			{
 			  label: 'lower case',
 			  commandName: 'suitcase.lower',
+			},
+			{
+			  label: 'UPPER CASE',
+			  commandName: 'suitcase.upper',
 			},
 			{
 			  label: 'Title Case',
