@@ -65,18 +65,22 @@ joplin.plugins.register({
 			{
 			  label: 'lower case',
 			  commandName: 'suitcase.lower',
+			  accelerator: 'CmdOrCtrl+Alt+Shift+L',
 			},
 			{
 			  label: 'UPPER CASE',
 			  commandName: 'suitcase.upper',
+			  accelerator: 'CmdOrCtrl+Alt+Shift+U',
 			},
 			{
 			  label: 'Title Case',
 			  commandName: 'suitcase.title',
+			  accelerator: 'CmdOrCtrl+Alt+Shift+T',
 			},
 			{
 			  label: 'Sentence case',
 			  commandName: 'suitcase.sentence',
+			  accelerator: 'CmdOrCtrl+Alt+Shift+S',
 			},
 		  ], MenuItemLocation.Edit);
 	},
