@@ -1,6 +1,6 @@
 import joplin from 'api';
 import { MenuItemLocation } from 'api/types';
-
+import { titleCase } from 'title-case';
 
 async function apply_case(case_type: string) {
 	let text = await joplin.commands.execute('selectedText');
@@ -19,8 +19,8 @@ async function apply_case(case_type: string) {
 
 function toTitleCase(text: string): string {
 	return text.replace(
-		/['\w]+/g,
-		(match: string, offset: number) => match[0].toUpperCase() + match.slice(1)
+		/([\w]+[^\n]*[\w]+)/g,
+		(match: string, offset: number) => titleCase(match)
 	);
 }
 
