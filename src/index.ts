@@ -19,14 +19,14 @@ async function apply_case(case_type: string) {
 
 function toTitleCase(text: string): string {
 	return text.replace(
-		/([\w]+[^\n]*[\w]+)/g,
+		/([a-zA-Z]+[^\n]*)/g,
 		(match: string, offset: number) => titleCase(match)
 	);
 }
 
 function toSentenceCase(text: string): string {
 	return text.replace(
-		/([\w]+[^.!?:\n]+[.!?:]*[\s]*)/g,
+		/([a-zA-Z]+[^.!?:\n]+[.!?:]*[\s]*)/g,
 		(match: string, offset: number) => match[0].toUpperCase() + match.slice(1)
 	);
 }
