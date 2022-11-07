@@ -19,7 +19,10 @@ async function apply_case(case_type: string) {
 		text = toHalfWidth(text);
 	}
 
-	await joplin.commands.execute('replaceSelection', text);
+	await joplin.commands.execute('editor.execCommand', {
+		name: 'replaceSelection',
+		args: [text, 'around'],
+	});
 }
 
 function toTitleCase(text: string): string {
