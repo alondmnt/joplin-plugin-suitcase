@@ -2,6 +2,21 @@ import joplin from 'api';
 import { MenuItemLocation } from 'api/types';
 import { titleCase } from 'title-case';
 
+const KATAKANA = {
+	"half": "｡｢｣､･ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝﾞﾟ",
+	"full": "。「」、・ヲァィゥェォャュョッーアイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン゛゜"
+}
+const HANGUL_JAMO = {
+	"half": "ﾡﾢﾣﾤﾥﾦﾧﾨﾩﾪﾫﾬﾭﾮﾯﾰﾱﾲﾳﾴﾵﾶﾷﾸﾹﾺﾻﾼﾽﾾￂￃￄￅￆￇￊￋￌￍￎￏￒￓￔￕￖￗￚￛￜ",
+	"full": "ㄱㄲㄳㄴㄵㄶㄷㄸㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅃㅄㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"
+}
+const SYMBOLS = {
+	"half": "¢£¬¯¦¥₩",
+	"full": "￠￡￢￣￤￥￦"
+}
+
+
+
 async function apply_case(case_type: string) {
 	let text = await joplin.commands.execute('selectedText');
 
@@ -40,15 +55,51 @@ function toSentenceCase(text: string): string {
 }
 
 function toFullWidth(text: string): string {
-	return text.replace(/([a-zA-Z0-9])/g, (match: string, offset: number) => {
-		return String.fromCharCode(match.charCodeAt(0) + 0xfee0);
-	});
+	var ret = "";
+	const chars = [...text];
+	for (var i=0; i<chars.length; i++){
+		var char = chars[i];
+		var code = char.charCodeAt(0);
+
+		if (code == 0x20 /*[space]*/) { ret += String.fromCharCode(0x3000 /*[ideogaphic-space]*/); continue }
+		if (code>=0x21 && code<=0x7e) { ret += String.fromCharCode(code+0xfee0); continue }
+
+		var idx = KATAKANA["half"].indexOf(char);
+		if (idx !== -1) {ret += KATAKANA["full"].charAt(idx); continue}
+
+		idx = HANGUL_JAMO["half"].indexOf(char);
+		if (idx !== -1) {ret += HANGUL_JAMO["full"].charAt(idx); continue}
+
+		idx = SYMBOLS["half"].indexOf(char);
+		if (idx !== -1) {ret += SYMBOLS["full"].charAt(idx); continue}
+
+		ret += char;
+	}
+	return ret
 }
 
 function toHalfWidth(text: string): string {
-	return text.replace(/([！-～])/g, (match: string, offset: number) => {
-		return String.fromCharCode(match.charCodeAt(0) - 0xfee0);
-	});
+	var ret = "";
+	const chars = [...text];
+	for (var i=0; i<chars.length; i++){
+		var char = chars[i];
+		var code = char.charCodeAt(0);
+
+		if (code == 0x3000 /*[ideogaphic-space]*/) { ret += String.fromCharCode(0x20 /*space*/); continue }
+		if (code>=0xff01 && code<=0xff5e) { ret += String.fromCharCode(code-0xfee0); continue }
+
+		var idx = KATAKANA["full"].indexOf(char);
+		if (idx !== -1) {ret += KATAKANA["half"].charAt(idx); continue}
+
+		idx = HANGUL_JAMO["full"].indexOf(char);
+		if (idx !== -1) {ret += HANGUL_JAMO["half"].charAt(idx); continue}
+
+		idx = SYMBOLS["full"].indexOf(char);
+		if (idx !== -1) {ret += SYMBOLS["half"].charAt(idx); continue}
+
+		ret += char;
+	}
+	return ret
 }
 
 joplin.plugins.register({
