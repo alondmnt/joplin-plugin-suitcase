@@ -6,5 +6,5 @@ This Joplin plugin adds text capitalization options to the Markdown editor. In t
 - UPPER CASE
 - Title Case (based on [title-case](https://www.npmjs.com/package/title-case))
 - Sentence case
-- ｆｕｌｌ　ｗｉｄｔｈ
+- ｆｕｌｌｗｉｄｔｈ
 - halfwidth

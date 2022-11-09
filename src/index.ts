@@ -168,7 +168,7 @@ joplin.plugins.register({
 			  accelerator: 'CmdOrCtrl+Alt+Shift+S',
 			},
 			{
-			  label: 'ｆｕｌｌ　ｗｉｄｔｈ',
+			  label: 'ｆｕｌｌｗｉｄｔｈ',
 			  commandName: 'suitcase.fullwidth',
 			  accelerator: 'CmdOrCtrl+Alt+Shift+F',
 			},
