@@ -38,6 +38,12 @@ async function apply_case(case_type: string) {
 		name: 'replaceSelection',
 		args: [text, 'around'],
 	});
+
+	// this works also with the rich text editor
+	const editedText = await joplin.commands.execute('selectedText');
+	if (editedText != text) {
+		await joplin.commands.execute('replaceSelection', text);
+	}
 }
 
 function toTitleCase(text: string): string {
