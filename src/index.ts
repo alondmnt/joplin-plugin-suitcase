@@ -1,6 +1,7 @@
 import joplin from 'api';
 import { MenuItemLocation } from 'api/types';
 import { titleCase } from 'title-case';
+import { sortSelectedLines } from './sort';
 
 const KATAKANA = {
 	"half": "｡｢｣､･ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝﾞﾟ",
@@ -184,5 +185,14 @@ joplin.plugins.register({
 			  accelerator: 'CmdOrCtrl+Alt+Shift+H',
 			},
 		  ], MenuItemLocation.Edit);
+
+		joplin.commands.register({
+			name: 'suitcase.sort',
+			label: 'Sort selected lines (insensitive)',
+			execute: async () => {
+				sortSelectedLines();
+			}
+		});
+		await joplin.views.menuItems.create('suitcaseSort', 'suitcase.sort', MenuItemLocation.EditorContextMenu, { accelerator: 'CmdOrCtrl+Alt+Shift+A' });
 	},
 });
