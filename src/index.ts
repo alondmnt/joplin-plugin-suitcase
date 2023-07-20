@@ -1,4 +1,5 @@
 import joplin from 'api';
+import { SettingItemType } from 'api/types';
 import { MenuItemLocation } from 'api/types';
 import { titleCase } from 'title-case';
 import { sortSelectedLines } from './sort';
@@ -26,9 +27,9 @@ async function apply_case(case_type: string) {
 	} else if (case_type == 'lower') {
 		text = text.toLowerCase();
 	} else if (case_type == 'title') {
-		text = toTitleCase(text);
+		text = await toTitleCase(text);
 	} else if (case_type == 'sentence') {
-		text = toSentenceCase(text);
+		text = await toSentenceCase(text);
 	} else if (case_type == 'fullwidth') {
 		text = toFullWidth(text);
 	} else if (case_type == 'halfwidth') {
@@ -47,11 +48,17 @@ async function apply_case(case_type: string) {
 	}
 }
 
-function toTitleCase(text: string): string {
+async function toTitleCase(text: string): Promise<string> {
+	if (await joplin.settings.value('always_lowercase')) {
+		text = text.toLowerCase();
+	}
 	return titleCase(text);
 }
 
-function toSentenceCase(text: string): string {
+async function toSentenceCase(text: string): Promise<string> {
+	if (await joplin.settings.value('always_lowercase')) {
+		text = text.toLowerCase();
+	}
 	return text.replace(
 		/([a-zA-Z]+[^.!?:\n]+[.!?:]*[\s]*)/g,
 		(match: string, offset: number) => match[0].toUpperCase() + match.slice(1)
@@ -182,6 +189,22 @@ joplin.plugins.register({
 			  accelerator: 'CmdOrCtrl+Alt+Shift+H',
 			},
 		  ], MenuItemLocation.Edit);
+
+		joplin.settings.registerSection('suitcase', {
+			label: 'Suitcase',
+			iconName: 'fas fa-suitcase',
+		});
+
+		joplin.settings.registerSettings({
+			'always_lowercase': {
+				value: false,
+				type: SettingItemType.Bool,
+				section: 'suitcase',
+				public: true,
+				label: 'Always lowercase text first',
+				description: 'When enabled, text will always be lowercased before applying the selected case. Default: false',
+			}
+		});
 
 		joplin.commands.register({
 			name: 'suitcase.sort',
