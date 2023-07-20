@@ -8,3 +8,5 @@ This Joplin plugin adds text capitalization options to the Markdown and rich tex
 - Sentence case
 - ｆｕｌｌｗｉｄｔｈ
 - halfwidth
+
+In addition, Suicase provides a command that allows sorting lines in a case-insensitive manner.
