@@ -48,10 +48,7 @@ async function apply_case(case_type: string) {
 }
 
 function toTitleCase(text: string): string {
-	return text.replace(
-		/([a-zA-Z]+[^\n]*)/g,
-		(match: string, offset: number) => titleCase(match)
-	);
+	return titleCase(text);
 }
 
 function toSentenceCase(text: string): string {
