@@ -36,16 +36,7 @@ async function apply_case(case_type: string) {
 		text = toHalfWidth(text);
 	}
 
-	await joplin.commands.execute('editor.execCommand', {
-		name: 'replaceSelection',
-		args: [text, 'around'],
-	});
-
-	// this works also with the rich text editor
-	const editedText = await joplin.commands.execute('selectedText');
-	if (editedText != text) {
-		await joplin.commands.execute('replaceSelection', text);
-	}
+	await joplin.commands.execute('replaceSelection', text);
 }
 
 async function toTitleCase(text: string): Promise<string> {
