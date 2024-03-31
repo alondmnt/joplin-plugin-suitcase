@@ -21,6 +21,10 @@ export async function sortSelectedLines(): Promise<void> {
             lines.push(line);
         }
 
+        // Init: regular sort
+        lines.sort((a, b) => {
+            return a.toLowerCase().localeCompare(b.toLowerCase());
+            });
         lines.sort((a, b) => {
             const numA = a.trim().match(/^\s*\d+(\.\d+)*/); // Parse the leading number(s)
             const numB = b.trim().match(/^\s*\d+(\.\d+)*/); // Parse the leading number(s)
