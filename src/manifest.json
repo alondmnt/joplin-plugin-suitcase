@@ -9,5 +9,5 @@
 	"homepage_url": "https://github.com/alondmnt/joplin-plugin-suitcase/#readme",
 	"repository_url": "https://github.com/alondmnt/joplin-plugin-suitcase",
 	"keywords": [],
-	"categories": []
+	"categories": ["editor"]
 }
