@@ -1,5 +1,5 @@
 import joplin from 'api';
-import { SettingItemType } from 'api/types';
+import { SettingItemType, ToolbarButtonLocation } from 'api/types';
 import { MenuItemLocation } from 'api/types';
 import { titleCase } from 'title-case';
 import { sortSelectedLines } from './sort';
@@ -17,9 +17,27 @@ const SYMBOLS = {
 	"full": "￠￡￢￣￤￥￦"
 }
 
+let cases = ['lower', 'upper', 'title', 'sentence', 'fullwidth', 'halfwidth'];
+let currentCase = 0;
 
+// Reset currentCase when note selection changes
+joplin.workspace.onNoteSelectionChange(async () => {
+	currentCase = 0;
+});
 
-async function apply_case(case_type: string) {
+async function swapCase() {
+	await applyCase(cases[currentCase]);
+	if (currentCase == 0) {
+		// Reset currentCase within X seconds
+		setTimeout(() => {
+			currentCase = 0;
+		}, await joplin.settings.value('swap_interval') * 1000);
+	}
+	// Increment currentCase
+	currentCase = (currentCase + 1) % cases.length;
+}
+
+async function applyCase(case_type: string) {
 	let text = await joplin.commands.execute('selectedText');
 
 	if (case_type == 'upper') {
@@ -107,48 +125,61 @@ function toHalfWidth(text: string): string {
 joplin.plugins.register({
 	onStart: async function() {
 		joplin.commands.register({
+			name: 'suitcase.swap',
+			iconName: 'fas fa-suitcase',
+			label: 'Swap format',
+			execute: async () => {
+				swapCase();
+			}
+		});
+		joplin.commands.register({
 			name: 'suitcase.lower',
 			label: 'lower case',
 			execute: async () => {
-				apply_case('lower');
+				applyCase('lower');
 			}
 		});
 		joplin.commands.register({
 			name: 'suitcase.upper',
 			label: 'UPPER CASE',
 			execute: async () => {
-				apply_case('upper');
+				applyCase('upper');
 			}
 		});
 		joplin.commands.register({
 			name: 'suitcase.title',
 			label: 'Title Case',
 			execute: async () => {
-				apply_case('title');
+				applyCase('title');
 			}
 		});
 		joplin.commands.register({
 			name: 'suitcase.sentence',
 			label: 'Sentence case',
 			execute: async () => {
-				apply_case('sentence');
+				applyCase('sentence');
 			}
 		});
 		joplin.commands.register({
 			name: 'suitcase.fullwidth',
 			label: 'ｆｕｌｌｗｉｄｔｈ',
 			execute: async () => {
-				apply_case('fullwidth');
+				applyCase('fullwidth');
 			}
 		});
 		joplin.commands.register({
 			name: 'suitcase.halfwidth',
 			label: 'halfwidth',
 			execute: async () => {
-				apply_case('halfwidth');
+				applyCase('halfwidth');
 			}
 		});
 		await joplin.views.menus.create('suitcaseMenu', 'Capitalization', [
+			{
+			  label: 'Swap case',
+			  commandName: 'suitcase.swap',
+			  accelerator: 'CmdOrCtrl+Alt+Shift+C',
+			},
 			{
 			  label: 'lower case',
 			  commandName: 'suitcase.lower',
@@ -194,6 +225,14 @@ joplin.plugins.register({
 				public: true,
 				label: 'Always lowercase text first',
 				description: 'When enabled, text will always be lowercased before applying the selected case. Default: false',
+			},
+			'swap_interval': {
+				value: 10,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap reset interval (seconds)',
+				description: 'After which time the case will be reset to the first case in the rotation (lower case). Default: 10',
 			}
 		});
 
@@ -205,5 +244,6 @@ joplin.plugins.register({
 			}
 		});
 		await joplin.views.menuItems.create('suitcaseSort', 'suitcase.sort', MenuItemLocation.EditorContextMenu, { accelerator: 'CmdOrCtrl+Alt+Shift+A' });
+		await joplin.views.toolbarButtons.create('swapCase', 'suitcase.swap', ToolbarButtonLocation.EditorToolbar);
 	},
 });
