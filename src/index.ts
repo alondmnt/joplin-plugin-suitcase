@@ -228,6 +228,9 @@ joplin.plugins.register({
 			},
 			'swap_interval': {
 				value: 10,
+				minimum: 1,
+				maximum: 60,
+				step: 1,
 				type: SettingItemType.Int,
 				section: 'suitcase',
 				public: true,
