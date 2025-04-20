@@ -26,19 +26,22 @@ joplin.workspace.onNoteSelectionChange(async () => {
 });
 
 async function swapCase() {
-	await applyCase(cases[currentCase]);
 	if (currentCase == 0) {
 		// Reset currentCase within X seconds
 		setTimeout(() => {
 			currentCase = 0;
 		}, await joplin.settings.value('swap_interval') * 1000);
 	}
-	// Increment currentCase
+	while (!await applyCase(cases[currentCase])) {
+		// Increment currentCase
+		currentCase = (currentCase + 1) % cases.length;
+	}
 	currentCase = (currentCase + 1) % cases.length;
 }
 
-async function applyCase(case_type: string) {
-	let text = await joplin.commands.execute('selectedText');
+async function applyCase(case_type: string): Promise<boolean> {
+	const origText = await joplin.commands.execute('selectedText');
+	let text = origText;
 
 	if (case_type == 'upper') {
 		text = text.toUpperCase();
@@ -54,7 +57,12 @@ async function applyCase(case_type: string) {
 		text = toHalfWidth(text);
 	}
 
+	if (text == origText) {
+		return false;
+	}
+
 	await joplin.commands.execute('replaceSelection', text);
+	return true;
 }
 
 async function toTitleCase(text: string): Promise<string> {
