@@ -1,3 +1,4 @@
 node_modules/
 dist/
 publish/
+package-lock.json

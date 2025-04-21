@@ -1,5 +1,5 @@
 import joplin from 'api';
-import { SettingItemType, ToolbarButtonLocation } from 'api/types';
+import { ContentScriptType, SettingItemType, ToolbarButtonLocation } from 'api/types';
 import { MenuItemLocation } from 'api/types';
 import { titleCase } from 'title-case';
 import { sortSelectedLines } from './sort';
@@ -61,7 +61,13 @@ async function applyCase(case_type: string): Promise<boolean> {
 		return false;
 	}
 
-	await joplin.commands.execute('replaceSelection', text);
+	await joplin.commands.execute('editor.execCommand', {
+		name: 'replaceAndKeepSelection',
+		args: [text]
+	});
+	if (await joplin.commands.execute('selectedText') !== text) {
+		await joplin.commands.execute('replaceSelection', text);
+	}
 	return true;
 }
 
@@ -256,5 +262,11 @@ joplin.plugins.register({
 		});
 		await joplin.views.menuItems.create('suitcaseSort', 'suitcase.sort', MenuItemLocation.EditorContextMenu, { accelerator: 'CmdOrCtrl+Alt+Shift+A' });
 		await joplin.views.toolbarButtons.create('swapCase', 'suitcase.swap', ToolbarButtonLocation.EditorToolbar);
+
+		await joplin.contentScripts.register(
+			ContentScriptType.CodeMirrorPlugin,
+			'replaceSelection',
+			'./replaceSelection.js',
+		);
 	},
 });
