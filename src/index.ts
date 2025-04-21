@@ -17,7 +17,7 @@ const SYMBOLS = {
 	"full": "￠￡￢￣￤￥￦"
 }
 
-let cases = ['lower', 'upper', 'title', 'sentence', 'fullwidth', 'halfwidth'];
+let cases = ['lower', 'upper', 'title', 'sentence'];
 let currentCase = 0;
 
 // Reset currentCase when note selection changes
