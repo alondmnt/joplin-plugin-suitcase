@@ -233,7 +233,7 @@ joplin.plugins.register({
 
 		joplin.settings.registerSettings({
 			'always_lowercase': {
-				value: false,
+				value: true,
 				type: SettingItemType.Bool,
 				section: 'suitcase',
 				public: true,
