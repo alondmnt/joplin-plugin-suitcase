@@ -141,7 +141,7 @@ joplin.plugins.register({
 		joplin.commands.register({
 			name: 'suitcase.swap',
 			iconName: 'fas fa-suitcase',
-			label: 'Swap format',
+			label: 'Swap case',
 			execute: async () => {
 				swapCase();
 			}
