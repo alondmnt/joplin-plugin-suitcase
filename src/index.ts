@@ -140,6 +140,7 @@ joplin.plugins.register({
 	onStart: async function() {
 		joplin.commands.register({
 			name: 'suitcase.swap',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			iconName: 'fas fa-suitcase',
 			label: 'Swap case',
 			execute: async () => {
@@ -148,6 +149,7 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.lower',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'lower case',
 			execute: async () => {
 				applyCase('lower');
@@ -155,6 +157,7 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.upper',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'UPPER CASE',
 			execute: async () => {
 				applyCase('upper');
@@ -162,6 +165,7 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.title',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'Title Case',
 			execute: async () => {
 				applyCase('title');
@@ -169,6 +173,7 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.sentence',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'Sentence case',
 			execute: async () => {
 				applyCase('sentence');
@@ -176,6 +181,7 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.fullwidth',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'ｆｕｌｌｗｉｄｔｈ',
 			execute: async () => {
 				applyCase('fullwidth');
@@ -183,6 +189,7 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.halfwidth',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'halfwidth',
 			execute: async () => {
 				applyCase('halfwidth');
