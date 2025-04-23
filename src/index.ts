@@ -238,7 +238,7 @@ joplin.plugins.register({
 				section: 'suitcase',
 				public: true,
 				label: 'Always lowercase text first',
-				description: 'When enabled, text will always be lowercased before applying the selected case. Default: false',
+				description: 'When enabled, text will always be lowercased before applying the selected case. Default: true',
 			},
 			'swap_interval': {
 				value: 10,
