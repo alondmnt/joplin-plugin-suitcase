@@ -516,6 +516,94 @@ joplin.plugins.register({
 				performCaseTransformationOnSelectedTextAndApply('halfwidth');
 			}
 		});
+		joplin.commands.register({
+			name: 'suitcase.uppernochars',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'UPPER CASE NO CONNECTING CHARACTERS',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('uppernochars');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.no',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'no case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('no');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.camel',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'camelCase',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('camel');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.kebab',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'kebab-case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('kebab');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.snake',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'snake_case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('snake');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.pascalsnake',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'Pascal_Snake',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('pascalsnake');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.pascal',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'PascalCase',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('pascal');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.dot',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'dot.case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('dot');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.path',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'path/case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('path');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.constant',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'CONSTANT_CASE',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('constant');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.train',
+			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'Train-Case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('train');
+			}
+		});
 		await joplin.views.menus.create('suitcaseMenu', 'Capitalization', [
 			{
 			  label: 'Swap case',
@@ -552,6 +640,17 @@ joplin.plugins.register({
 			  commandName: 'suitcase.halfwidth',
 			  accelerator: 'CmdOrCtrl+Alt+Shift+H',
 			},
+			{ label: 'no case', commandName: 'suitcase.no' },
+			{ label: 'UPPER NO CONNECTING CHARACTERS', commandName: 'suitcase.uppernochars' },
+			{ label: 'camelCase', commandName: 'suitcase.camel' },
+			{ label: 'kebab-case', commandName: 'suitcase.kebab' },
+			{ label: 'snake_case', commandName: 'suitcase.snake' },
+			{ label: 'PascalCase', commandName: 'suitcase.pascal' },
+			{ label: 'Pascal_Snake', commandName: 'suitcase.pascalsnake' },
+			{ label: 'dot.case', commandName: 'suitcase.dot' },
+			{ label: 'path/case', commandName: 'suitcase.path' },
+			{ label: 'CONSTANT_CASE', commandName: 'suitcase.constant' },
+			{ label: 'Train-Case', commandName: 'suitcase.train' },
 		  ], MenuItemLocation.Edit);
 
 		joplin.settings.registerSection('suitcase', {
