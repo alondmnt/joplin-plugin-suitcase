@@ -153,6 +153,21 @@ const pluginConfig = Object.assign({}, baseConfig, {
 		filename: 'index.js',
 		path: distDir,
 	},
+	module: {
+		rules: [
+			...baseConfig.module.rules,
+			{
+				test: /\.js$/,
+				include: path.resolve(__dirname, 'node_modules/change-case'),
+				use: {
+					loader: 'babel-loader',
+					options: {
+						presets: ['@babel/preset-env']
+					}
+				}
+			}
+		]
+	},
 	plugins: [
 		new CopyPlugin({
 			patterns: [

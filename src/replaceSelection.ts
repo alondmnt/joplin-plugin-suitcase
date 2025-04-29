@@ -20,8 +20,8 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
 				}));
 
 				const transaction = state.update({
-					changes,
-					selection, // Keep the selection as is
+					changes
+					// don't specify selection - it will auto-update it based on new replacement length
 				});
 
 				editor.dispatch(transaction);
