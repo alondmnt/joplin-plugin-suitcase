@@ -29,23 +29,12 @@ joplin.workspace.onNoteSelectionChange(async () => {
 
 async function swapCase() {
 	const selectedText = await joplin.commands.execute('selectedText');
-	if (!selectedText || !selectedText.trim()) {
-		return; // Don't proceed if selection is empty or only whitespace
-	}
 	if (lastSelectedText !== selectedText) {
 		currentCase = 0;
 	}
-
-	let attempts = 0;
-	const maxAttempts = cases.length;
 	while (!await applyCase(cases[currentCase])) {
+		// Increment currentCase
 		currentCase = (currentCase + 1) % cases.length;
-		attempts++;
-		if (attempts >= maxAttempts) {
-			// If we've tried all cases and none worked, reset to initial state
-			currentCase = 0;
-			return;
-		}
 	}
 	currentCase = (currentCase + 1) % cases.length;
 }
