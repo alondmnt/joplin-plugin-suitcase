@@ -453,7 +453,6 @@ joplin.plugins.register({
 	onStart: async function() {
 		joplin.commands.register({
 			name: 'suitcase.swap',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			iconName: 'fas fa-suitcase',
 			label: 'Swap case',
 			execute: async () => {
@@ -462,7 +461,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.lower',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'lower case',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('lower');
@@ -470,7 +468,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.upper',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'UPPER CASE',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('upper');
@@ -478,7 +475,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.uppernochars',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'UPPER CASE',
 			execute: async () => {
 				applyCase('upper');
@@ -486,7 +482,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.title',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'Title Case',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('title');
@@ -494,7 +489,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.sentence',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'Sentence case',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('sentence');
@@ -502,7 +496,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.fullwidth',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'ｆｕｌｌｗｉｄｔｈ',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('fullwidth');
@@ -510,7 +503,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.halfwidth',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'halfwidth',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('halfwidth');
@@ -518,7 +510,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.uppernochars',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'UPPER CASE NO CONNECTING CHARACTERS',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('uppernochars');
@@ -526,7 +517,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.no',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'no case',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('no');
@@ -534,7 +524,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.camel',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'camelCase',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('camel');
@@ -542,7 +531,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.kebab',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'kebab-case',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('kebab');
@@ -550,7 +538,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.snake',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'snake_case',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('snake');
@@ -558,7 +545,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.pascalsnake',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'Pascal_Snake',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('pascalsnake');
@@ -566,7 +552,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.pascal',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'PascalCase',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('pascal');
@@ -574,7 +559,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.dot',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'dot.case',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('dot');
@@ -582,7 +566,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.path',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'path/case',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('path');
@@ -590,7 +573,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.constant',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'CONSTANT_CASE',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('constant');
@@ -598,7 +580,6 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.train',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'Train-Case',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('train');
