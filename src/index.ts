@@ -1,8 +1,8 @@
 import joplin from 'api';
-import { ContentScriptType, SettingItemType, ToolbarButtonLocation } from 'api/types';
-import { MenuItemLocation } from 'api/types';
-import { titleCase } from 'title-case';
-import { sortSelectedLines } from './sort';
+import {ContentScriptType, MenuItemLocation, SettingItemType, ToolbarButtonLocation} from 'api/types';
+import * as changeCase from "change-case";
+import {sortSelectedLines} from './sort';
+import {titleCase} from "title-case";
 
 const KATAKANA = {
 	"half": "｡｢｣､･ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝﾞﾟ",
