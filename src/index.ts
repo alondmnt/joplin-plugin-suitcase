@@ -16,6 +16,9 @@ const SYMBOLS = {
 	"half": "¢£¬¯¦¥₩",
 	"full": "￠￡￢￣￤￥￦"
 }
+// User can enable/disable cases that are rotated in Swap Case command. It makes sense to at least have original, lowercase,
+// uppercase, no case.
+const MIN_SWAP_CASE_CYCLE_CASES = 3;
 // Time after last Swap Case command change that `onNoteChange` handler thinks change is coming from Swap Case command
 // rather than from a regular note change. User changing note content resets Swap Case cycle.
 // This value was derived experimentally and is this high mainly because Mobile Web with 4x performance slowdown triggers
@@ -65,7 +68,7 @@ joplin.settings.onChange(async (event: any) => {
  */
 function getDefaultCaseCycleList(): string[] {
 	return [
-		'lower', 'upper', 'title', 'sentence'
+		'original', 'lower', 'upper', 'title', 'sentence'
 	];
 }
 
@@ -77,6 +80,36 @@ async function getInitialOrCurrentlySelectedText(): Promise<string> {
 	return initialTextOfSwapCaseCycle
 		? initialTextOfSwapCaseCycle
 		: await joplin.commands.execute('selectedText');
+}
+
+/**
+ * Filters and sorts all possible cases in "Swap Case" command based on user settings.
+ * Returns all possible cases (`getDefaultCaseCycleList()`) if user configured duplicate case order in plugin settings.
+ * @throws error if filtered cases amount is lower than defined in `MIN_SWAP_CASE_CYCLE_CASES` constant.
+ */
+async function getSwapCaseCycleList(): Promise<string[]> {
+	const allCases = getDefaultCaseCycleList();
+	const enabledCases: { caseType: string, order: number }[] = [];
+	const orderSet = new Set<number>();
+	// filter all possible cases based on plugin settings
+	for (const caseType of allCases) {
+		const order = await joplin.settings.value(`case_${caseType}_order`);
+		if (order < 0 && caseType !== 'original') {
+			continue;
+		}
+		enabledCases.push({ caseType, order });
+		if (orderSet.has(order)) {
+			console.warn(`Duplicate order ${order} detected for case '${caseType}'. Using default order.`);
+			return getDefaultCaseCycleList(); // Fallback to default if validation fails
+		}
+		orderSet.add(order);
+	}
+	if (enabledCases.length < MIN_SWAP_CASE_CYCLE_CASES) {
+		throw new Error(`Suitcase plugin. Error: 'Swap Case' command aborted. Min cases required to be enabled in settings: ${MIN_SWAP_CASE_CYCLE_CASES}`);
+	}
+	enabledCases.sort((a, b) => a.order - b.order);
+
+	return enabledCases.map(item => item.caseType);
 }
 
 function chooseNextCaseInSwapCaseCycle(): void {
@@ -181,7 +214,7 @@ async function swapCase(isRerun: boolean = false): Promise<void> {
 async function initNewSwapCaseCycle(): Promise<void> {
 	await resetSwapCaseCycleMemory();
 
-	currentCaseSwapCycleList = await getDefaultCaseCycleList();
+	currentCaseSwapCycleList = await getSwapCaseCycleList();
 
 	initialTextOfSwapCaseCycle = await getInitialOrCurrentlySelectedText();
 	prevSwapCaseResult = initialTextOfSwapCaseCycle;
@@ -192,7 +225,9 @@ async function initNewSwapCaseCycle(): Promise<void> {
 async function transformCaseOfCurSelection(case_type: string): Promise<string> {
 	let text = await getInitialOrCurrentlySelectedText();
 
-	if (case_type === 'upper') {
+	if (case_type === 'original') {
+		text = initialTextOfSwapCaseCycle;
+	} else if (case_type === 'upper') {
 		text = text.toUpperCase();
 	} else if (case_type === 'lower') {
 		text = text.toLowerCase();
@@ -454,6 +489,53 @@ joplin.plugins.register({
 				public: true,
 				label: 'Always lowercase text first',
 				description: 'When enabled, text will always be lowercased before applying the selected case. Default: true',
+			},
+			'case_original_order': {
+				value: -9999999,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: false,
+				label: 'Swap case: Order for applying original version of selected text. Non-modifiable to user. Should be first so that when user have not found right case - they are back to original one in the end of cycle.'
+			},
+			'case_lower_order': {
+				value: 10,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for lower case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_upper_order': {
+				value: 30,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for UPPER CASE',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_title_order': {
+				value: 50,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for Title Case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_sentence_order': {
+				value: 60,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for Sentence case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
 			},
 		});
 
