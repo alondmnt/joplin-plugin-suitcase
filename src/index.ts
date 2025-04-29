@@ -68,7 +68,8 @@ joplin.settings.onChange(async (event: any) => {
  */
 function getDefaultCaseCycleList(): string[] {
 	return [
-		'original', 'lower', 'upper', 'title', 'sentence'
+		'original', 'lower', 'no', 'upper', 'uppernochars', 'title', 'sentence', 'camel', 'kebab', 'snake', 'pascalsnake',
+		'dot', 'constant', 'pascal', 'path', 'train'
 	];
 }
 
@@ -188,6 +189,9 @@ async function swapCase(isRerun: boolean = false): Promise<void> {
 			await swapCase(true); // recursive call
 			return;
 		}
+		// 'change-case' lib used for case transformations don't respect special characters (e.g., spaces, tabs, newlines, etc.).
+		// In RTE those are inevitably lost, because Joplin strips out them when selected text is requested.
+		newText = preserveSpecialCharactersFromBoundariesOfInitialText(initialTextOfSwapCaseCycle, newText);
 
 		if (!newTextSameAsInitial) {
 			await applyCase(newText);
@@ -224,17 +228,41 @@ async function initNewSwapCaseCycle(): Promise<void> {
 
 async function transformCaseOfCurSelection(case_type: string): Promise<string> {
 	let text = await getInitialOrCurrentlySelectedText();
+	// see setting description
+	const mergeAmbiguousCharactersSetting = await joplin.settings.value('merge_ambiguous_characters');
 
 	if (case_type === 'original') {
 		text = initialTextOfSwapCaseCycle;
 	} else if (case_type === 'upper') {
 		text = text.toUpperCase();
+	} else if (case_type === 'uppernochars') {
+		text = changeCase.noCase(text)?.toUpperCase();
 	} else if (case_type === 'lower') {
 		text = text.toLowerCase();
+	} else if (case_type === 'no') {
+		text = changeCase.noCase(text);
 	} else if (case_type === 'title') {
 		text = await toTitleCase(text);
 	} else if (case_type === 'sentence') {
 		text = await toSentenceCase(text);
+	} else if (case_type === 'camel') {
+		text = changeCase.camelCase(text, { mergeAmbiguousCharacters: mergeAmbiguousCharactersSetting });
+	} else if (case_type === 'kebab') {
+		text = changeCase.kebabCase(text);
+	} else if (case_type === 'snake') {
+		text = changeCase.snakeCase(text);
+	} else if (case_type === 'pascal') {
+		text = changeCase.pascalCase(text, { mergeAmbiguousCharacters: mergeAmbiguousCharactersSetting });
+	} else if (case_type === 'pascalsnake') {
+		text = changeCase.pascalSnakeCase(text);
+	} else if (case_type === 'dot') {
+		text = changeCase.dotCase(text);
+	} else if (case_type === 'path') {
+		text = changeCase.pathCase(text);
+	} else if (case_type === 'constant') {
+		text = changeCase.constantCase(text);
+	} else if (case_type === 'train') {
+		text = changeCase.trainCase(text);
 	} else if (case_type === 'fullwidth') {
 		text = toFullWidth(text);
 	} else if (case_type === 'halfwidth') {
@@ -254,9 +282,59 @@ async function applyCase(text: string): Promise<void> {
 }
 
 async function performCaseTransformationOnSelectedTextAndApply(case_type: string): Promise<void> {
+	const selectedText = await joplin.commands.execute('selectedText');
+
 	let newText = await transformCaseOfCurSelection(case_type);
+	newText = preserveSpecialCharactersFromBoundariesOfInitialText(selectedText, newText);
 
 	await applyCase(newText);
+}
+
+/**
+ * Preserves the leading and trailing special characters from the initial text
+ * while applying them to the transformed text's core content.
+ *
+ * This function ensures that the transformed text retains the exact sequence
+ * of special characters (e.g., spaces, tabs, newlines, Unicode spaces) from
+ * the beginning and end of the initial text. It does this by:
+ * 1. Extracting the leading and trailing special character sequences from the initial text.
+ * 2. Removing any leading and trailing special characters from the transformed text to isolate its core content.
+ * 3. Combining the initial text's leading sequence, the transformed text's core, and the initial text's trailing sequence.
+ *
+ * @param initialText - The original string from which leading and trailing special characters are extracted.
+ * @param transformedText - The string that has been modified or transformed, potentially with different leading and
+ * trailing special characters.
+ * @returns A new string with the initial text's leading special characters, the transformed text's core content, and the
+ * initial text's trailing special characters.
+ */
+function preserveSpecialCharactersFromBoundariesOfInitialText(initialText: string, transformedText: string): string {
+	if (!initialText?.trim() || !transformedText?.trim()) {
+		return '';
+	}
+
+	const specialCharsArray = [
+		' ', '\t', '\n', '\r', '\v', '\f',
+		'\u00A0',
+		'\u2000', '\u2001', '\u2002', '\u2003', '\u2004', '\u2005',
+		'\u2006', '\u2007', '\u2008', '\u2009', '\u200A',
+		'\u200B', '\u200C', '\u200D', '\u200E', '\u200F',
+		'\uFEFF'
+	];
+	const specialChars = specialCharsArray.join('');
+	const leadingRegex = new RegExp(`^[${specialChars}]+`);
+	const trailingRegex = new RegExp(`[${specialChars}]+$`);
+
+	// Extract leading and trailing sequences from initialText
+	const leadingMatch = initialText.match(leadingRegex);
+	const leadingSeq = leadingMatch ? leadingMatch[0] : '';
+	const trailingMatch = initialText.match(trailingRegex);
+	const trailingSeq = trailingMatch ? trailingMatch[0] : '';
+
+	// Remove leading and trailing special characters from transformedText to get core text
+	const coreText = transformedText.replace(leadingRegex, '').replace(trailingRegex, '');
+
+	// Combine initialText's leading sequence, transformedText's core, and initialText's trailing sequence
+	return leadingSeq + coreText + trailingSeq;
 }
 
 async function toTitleCase(text: string): Promise<string> {
@@ -490,6 +568,14 @@ joplin.plugins.register({
 				label: 'Always lowercase text first',
 				description: 'When enabled, text will always be lowercased before applying the selected case. Default: true',
 			},
+			'merge_ambiguous_characters': {
+				value: false,
+				type: SettingItemType.Bool,
+				section: 'suitcase',
+				public: true,
+				label: 'Merge ambiguous characters',
+				description: 'By default, camelCase and PascalCase separate ambiguous characters with _. For example, V1.2 would become V1_2 instead of V12. If you prefer them merged you can set this setting to true.',
+			},
 			'case_original_order': {
 				value: -9999999,
 				type: SettingItemType.Int,
@@ -507,6 +593,16 @@ joplin.plugins.register({
 				label: 'Swap case: Order for lower case',
 				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
 			},
+			'case_no_order': {
+				value: 20,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for no case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
 			'case_upper_order': {
 				value: 30,
 				minimum: -1,
@@ -515,6 +611,16 @@ joplin.plugins.register({
 				section: 'suitcase',
 				public: true,
 				label: 'Swap case: Order for UPPER CASE',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_uppernochars_order': {
+				value: 40,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for UPPER NO CONNECTING CHARACTERS CASE',
 				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
 			},
 			'case_title_order': {
@@ -535,6 +641,96 @@ joplin.plugins.register({
 				section: 'suitcase',
 				public: true,
 				label: 'Swap case: Order for Sentence case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_camel_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for camelCase',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_kebab_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for kebab-case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_snake_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for snake_case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_pascalsnake_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for Pascal_Case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_constant_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for CONSTANT_CASE',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_dot_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for dot.case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_pascal_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for PascalCase',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_path_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for path/case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_train_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for Train-Case',
 				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
 			},
 		});
