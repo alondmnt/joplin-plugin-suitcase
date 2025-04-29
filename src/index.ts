@@ -19,18 +19,18 @@ const SYMBOLS = {
 
 let cases = ['lower', 'upper', 'title', 'sentence'];
 let currentCase = 0;
-let lastSelectedText = '';
 
 // Reset currentCase when note selection changes
 joplin.workspace.onNoteSelectionChange(async () => {
 	currentCase = 0;
-	lastSelectedText = '';
 });
 
 async function swapCase() {
-	const selectedText = await joplin.commands.execute('selectedText');
-	if (lastSelectedText !== selectedText) {
-		currentCase = 0;
+	if (currentCase == 0) {
+		// Reset currentCase within X seconds
+		setTimeout(() => {
+			currentCase = 0;
+		}, await joplin.settings.value('swap_interval') * 1000);
 	}
 	while (!await applyCase(cases[currentCase])) {
 		// Increment currentCase
@@ -56,7 +56,6 @@ async function applyCase(case_type: string): Promise<boolean> {
 	} else if (case_type == 'halfwidth') {
 		text = toHalfWidth(text);
 	}
-	lastSelectedText = text;
 
 	if (text == origText) {
 		return false;
@@ -247,6 +246,17 @@ joplin.plugins.register({
 				public: true,
 				label: 'Always lowercase text first',
 				description: 'When enabled, text will always be lowercased before applying the selected case. Default: true',
+			},
+			'swap_interval': {
+				value: 10,
+				minimum: 1,
+				maximum: 60,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap reset interval (seconds)',
+				description: 'After which time the case will be reset to the first case in the rotation (lower case). Default: 10',
 			}
 		});
 
