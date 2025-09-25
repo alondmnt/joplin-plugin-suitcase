@@ -10,16 +10,21 @@ export async function sortSelectedLines(): Promise<void> {
         const { anchor, head } = ranges[i];
         const start = Math.min(anchor.line, head.line);
         const end = Math.max(anchor.line, head.line);
-    
-        const lines = [];
-        const linesWithNumbers = [];
+
+        const originalLines: string[] = [];
         for (let j = start; j <= end; j++) {
             let line = await joplin.commands.execute('editor.execCommand', {
                 name: 'getLine',
                 args: [j],
             });
-            lines.push(line);
+            originalLines.push(line);
         }
+
+        if (!originalLines.length) {
+            continue;
+        }
+
+        const lines = [...originalLines];
 
         // Init: regular sort
         lines.sort((a, b) => {
@@ -42,12 +47,12 @@ export async function sortSelectedLines(): Promise<void> {
         });
 
         const text = lines.join('\n');
-        const ch = lines[lines.length - 1].length;
+        const ch = originalLines[originalLines.length - 1].length;
     
         await joplin.commands.execute('editor.execCommand', {
             name: 'replaceRange',
             args: [text, { line: start, ch: 0 }, { line: end, ch: ch }],
         });
     }
-    
+
 }
