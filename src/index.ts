@@ -1,8 +1,8 @@
 import joplin from 'api';
-import { ContentScriptType, SettingItemType, ToolbarButtonLocation } from 'api/types';
-import { MenuItemLocation } from 'api/types';
-import { titleCase } from 'title-case';
-import { sortSelectedLines } from './sort';
+import {ContentScriptType, MenuItemLocation, SettingItemType, ToolbarButtonLocation} from 'api/types';
+import * as changeCase from "change-case";
+import {sortSelectedLines} from './sort';
+import {titleCase} from "title-case";
 
 const KATAKANA = {
 	"half": "｡｢｣､･ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝﾞﾟ",
@@ -16,63 +16,262 @@ const SYMBOLS = {
 	"half": "¢£¬¯¦¥₩",
 	"full": "￠￡￢￣￤￥￦"
 }
+// User can enable/disable cases that are rotated in Swap Case command. It makes sense to at least have original, lowercase,
+// uppercase, no case.
+const MIN_SWAP_CASE_CYCLE_CASES = 3;
+// Time after last Swap Case command change that `onNoteChange` handler thinks change is coming from Swap Case command
+// rather than from a regular note change. User changing note content resets Swap Case cycle.
+// This value was derived experimentally and is this high mainly because Mobile Web with 4x performance slowdown triggers
+// `onNoteChange` trigger too late. On high-performance devices this value is really around 300ms, but let's orient on
+// worst case scenario here.
+// @see `lastSwapCaseChangeTimestamp`.
+const TIMEOUT_IGNORE_NOTE_CHANGE_SINCE_LAST_SWAP_CASE_MS = 4000;
 
-let cases = ['lower', 'upper', 'title', 'sentence'];
 let currentCase = 0;
-let lastSelectedText = '';
+let currentCaseSwapCycleList: string[] | null = null;
+let initialTextOfSwapCaseCycle: string;
+let prevSwapCaseResult: string;
+// used to prohibit concurrent Swap Case command executions. Often happens on low-end CPU devices.
+let swapCaseInProgress = false;
+// allows us to differentiate between case change in 'Swap Case' command and regular note change.
+// @see `TIMEOUT_IGNORE_NOTE_CHANGE_SINCE_LAST_SWAP_CASE_MS`.
+let lastSwapCaseChangeTimestamp: number = Date.now();
 
-// Reset currentCase when note selection changes
 joplin.workspace.onNoteSelectionChange(async () => {
-	currentCase = 0;
-	lastSelectedText = '';
+	// Reset Swap Case cycle when note selection changes
+	resetSwapCaseCycleMemory();
 });
 
-async function swapCase() {
-	const selectedText = await joplin.commands.execute('selectedText');
-	if (!selectedText || !selectedText.trim()) {
-		return; // Don't proceed if selection is empty or only whitespace
+joplin.workspace.onNoteChange(async (event: any) => {
+	// Reset case cycle memory when note content changes - user no longer interested in changing case for prev. text.
+	// `onNoteChange` trigger is called during Swap Case command when it does Undo or updates the selection with new case.
+	// It's also called on regular changes to note from the user.
+	// We want reset Swap Cycle memory when users starts editing note manually, but how differentiate such change from Swap
+	// Case cmd change?
+	// Here we assume change comes from Swap Case cmd if a couple of seconds from last cmd execution have not yet elapsed.
+	// Non-avoidable bug is when user runs Swap Case cmd, then types something elsewhere really fast and without selecting
+	// any text runs the Swap Case cmd again - plugin will rollback text that user just typed.
+	// This is really an edge case - normally user would select text they want to change case on.
+	if ((Date.now() - lastSwapCaseChangeTimestamp) < TIMEOUT_IGNORE_NOTE_CHANGE_SINCE_LAST_SWAP_CASE_MS) {
+		return;
 	}
-	if (lastSelectedText !== selectedText) {
-		currentCase = 0;
-	}
+	resetSwapCaseCycleMemory();
+});
 
-	let attempts = 0;
-	const maxAttempts = cases.length;
-	while (!await applyCase(cases[currentCase])) {
-		currentCase = (currentCase + 1) % cases.length;
-		attempts++;
-		if (attempts >= maxAttempts) {
-			// If we've tried all cases and none worked, reset to initial state
-			currentCase = 0;
-			return;
-		}
-	}
-	currentCase = (currentCase + 1) % cases.length;
+// Update settings
+joplin.settings.onChange(async (event: any) => {
+	resetSwapCaseCycleMemory();
+});
+
+/**
+ * Returns list of all possible case codes used in Swap Case command.
+ */
+function getDefaultCaseCycleList(): string[] {
+	return [
+		'original', 'lower', 'no', 'upper', 'uppernochars', 'title', 'sentence', 'camel', 'kebab', 'snake', 'pascalsnake',
+		'dot', 'constant', 'pascal', 'path', 'train'
+	];
 }
 
-async function applyCase(case_type: string): Promise<boolean> {
-	const origText = await joplin.commands.execute('selectedText');
-	let text = origText;
+/**
+ * Gets initially selected text at beginning of current "Swap Case" cycle, or, if no such text - gets one from current
+ * text selection.
+ */
+async function getInitialOrCurrentlySelectedText(): Promise<string> {
+	return initialTextOfSwapCaseCycle
+		? initialTextOfSwapCaseCycle
+		: await joplin.commands.execute('selectedText');
+}
 
-	if (case_type == 'upper') {
+/**
+ * Filters and sorts all possible cases in "Swap Case" command based on user settings.
+ * Returns all possible cases (`getDefaultCaseCycleList()`) if user configured duplicate case order in plugin settings.
+ * @throws error if filtered cases amount is lower than defined in `MIN_SWAP_CASE_CYCLE_CASES` constant.
+ */
+async function getSwapCaseCycleList(): Promise<string[]> {
+	const allCases = getDefaultCaseCycleList();
+	const enabledCases: { caseType: string, order: number }[] = [];
+	const orderSet = new Set<number>();
+	// filter all possible cases based on plugin settings
+	for (const caseType of allCases) {
+		const order = await joplin.settings.value(`case_${caseType}_order`);
+		if (order < 0 && caseType !== 'original') {
+			continue;
+		}
+		enabledCases.push({ caseType, order });
+		if (orderSet.has(order)) {
+			console.warn(`Duplicate order ${order} detected for case '${caseType}'. Using default order.`);
+			return getDefaultCaseCycleList(); // Fallback to default if validation fails
+		}
+		orderSet.add(order);
+	}
+	if (enabledCases.length < MIN_SWAP_CASE_CYCLE_CASES) {
+		throw new Error(`Suitcase plugin. Error: 'Swap Case' command aborted. Min cases required to be enabled in settings: ${MIN_SWAP_CASE_CYCLE_CASES}`);
+	}
+	enabledCases.sort((a, b) => a.order - b.order);
+
+	return enabledCases.map(item => item.caseType);
+}
+
+function chooseNextCaseInSwapCaseCycle(): void {
+	currentCase = (currentCase + 1) % currentCaseSwapCycleList.length;
+}
+
+async function resetSwapCaseCycleMemory() {
+	currentCase = 0;
+	currentCaseSwapCycleList = null;
+	initialTextOfSwapCaseCycle = null;
+	prevSwapCaseResult = null;
+
+	console.debug("Reset Swap Cycle memory");
+}
+
+/**
+ * Triggers selected text transformation each time with different case.
+ * When first triggered on particular text user should first select text - no selection needed for following iterations.
+ * Applied cases are filtered, sorted and executed based on user settings for each case type.
+ * Remembers the very first selected text and uses it for each next transformation until other text is selected, note is
+ * switched, or note content is changed.
+ * Undo (Ctrl+Z) is performed to before each case change to restore initially selected text and restore selection
+ * — except when the transformation yields text identical to the original selection.
+ * Swap Case cycle is exited when:
+ * - user iterated to end of cycle and is now on initial version, clicks somewhere else and runs command again;
+ * - user changes/switches note;
+ * - user updates the plugin settings;
+ */
+async function swapCase(isRerun: boolean = false): Promise<void> {
+	if (swapCaseInProgress && !isRerun) {
+		console.debug("Skip concurrent Swap Case command execution.");
+		return;
+	}
+	swapCaseInProgress = true;
+	try {
+		let inMiddleOfSwapCaseCycle = initialTextOfSwapCaseCycle && initialTextOfSwapCaseCycle.length > 0;
+
+		let selectedText = await joplin.commands.execute('selectedText');
+
+		const totallyNewSelection = selectedText?.trim() && (selectedText !== prevSwapCaseResult) && !isRerun;
+		if (totallyNewSelection) {
+			await initNewSwapCaseCycle();
+			console.debug("Started new Swap Case cycle. Reason: totally new selection");
+		}
+		// Perform Undo (CTRL+Z) in middle of Swap Case cycle so editor rollbacks recent case and auto-selects initially
+		// selected text at beginning.
+		// In original plugin implementation plugin would just replace current selection with new text. It was problematic
+		// with Rich Text Editor (TinyMCE) - it doesn't preserve selection after text replacement forcing user to re-select.
+		// Now that we perform Undo before applying new text version - TinyMCE re-gains selection and user does not need
+		// to select text to transform text again. Bonus: Undo history isn't flooded with case transformations.
+		// Edge case: when prev. transformation produces same text as initially selected text editor treats it as if we
+		// have not performed any transformations so we're back to point where we initially selected text.
+		// If we do Undo at this point - even prior note changes get affected - so we skip Undo.
+		// It's not needed anyway because selection is already in place, so we ready for next transformation.
+		// If user moves cursor somewhere else at this point and calls Swap Case cmd - we treat it as exit from Swap Case cycle.
+		// If user keep cursor - we continue with Swap Case cycle.
+		if (inMiddleOfSwapCaseCycle && prevSwapCaseResult !== initialTextOfSwapCaseCycle && !totallyNewSelection && !isRerun) {
+			await undoEditorChange();
+			// Undo triggers `onNoteChange` that resets cycle memory - instead let it know that following change should be ignored.
+			lastSwapCaseChangeTimestamp = Date.now();
+			selectedText = await waitForSelectedTextToChange(selectedText, 300, 2000);
+		}
+		if (!selectedText.trim()) {
+			console.warn("Skip running 'Swap Case' command because no selected text.");
+			return;
+		}
+		let newText = await transformCaseOfCurSelection(currentCaseSwapCycleList[currentCase]);
+
+		const newTextSameAsInitial = newText === initialTextOfSwapCaseCycle;
+		// if in middle of cycle we generate same case as prev. iteration - retry with new case.
+		// Example scenario: "lowercase" is configured as first in cycle -> user selects "hello world" -> runs cmd ->
+		// back to same text as we had before -> why display? -> let's skip to the next one which might be "uppercase".
+		if (newText?.trim() && (newText?.trim() === prevSwapCaseResult?.trim())) {
+			console.debug("Starting again because same case as prev. iteration");
+			chooseNextCaseInSwapCaseCycle();
+			await swapCase(true); // recursive call
+			return;
+		}
+		// 'change-case' lib used for case transformations don't respect special characters (e.g., spaces, tabs, newlines, etc.).
+		// In RTE those are inevitably lost, because Joplin strips out them when selected text is requested.
+		newText = preserveSpecialCharactersFromBoundariesOfInitialText(initialTextOfSwapCaseCycle, newText);
+
+		if (!newTextSameAsInitial) {
+			await applyCase(newText);
+			// `applyCase` triggers `onNoteChange` that resets cycle memory - instead let it know that following change should be ignored.
+			lastSwapCaseChangeTimestamp = Date.now();
+			console.debug("Swap Case command applied new case transformation.")
+		}
+
+		prevSwapCaseResult = newText;
+		chooseNextCaseInSwapCaseCycle();
+	} catch (error) {
+		console.error("An error occurred during Swap Case command:", (error as Error).message);
+	} finally {
+		swapCaseInProgress = false;
+	}
+}
+
+/**
+ * Restart "Swap Case" command's case cycle by:
+ * - resetting all memory associated with it;
+ * - reloading all user-configured cases;
+ * - adding currently selected text to "Swap Case" cycle memory.
+ */
+async function initNewSwapCaseCycle(): Promise<void> {
+	await resetSwapCaseCycleMemory();
+
+	currentCaseSwapCycleList = await getSwapCaseCycleList();
+
+	initialTextOfSwapCaseCycle = await getInitialOrCurrentlySelectedText();
+	prevSwapCaseResult = initialTextOfSwapCaseCycle;
+
+	console.debug("Started new Swap Cycle");
+}
+
+async function transformCaseOfCurSelection(case_type: string): Promise<string> {
+	let text = await getInitialOrCurrentlySelectedText();
+	// see setting description
+	const mergeAmbiguousCharactersSetting = await joplin.settings.value('merge_ambiguous_characters');
+
+	if (case_type === 'original') {
+		text = initialTextOfSwapCaseCycle;
+	} else if (case_type === 'upper') {
 		text = text.toUpperCase();
-	} else if (case_type == 'lower') {
+	} else if (case_type === 'uppernochars') {
+		text = changeCase.noCase(text)?.toUpperCase();
+	} else if (case_type === 'lower') {
 		text = text.toLowerCase();
-	} else if (case_type == 'title') {
+	} else if (case_type === 'no') {
+		text = changeCase.noCase(text);
+	} else if (case_type === 'title') {
 		text = await toTitleCase(text);
-	} else if (case_type == 'sentence') {
+	} else if (case_type === 'sentence') {
 		text = await toSentenceCase(text);
-	} else if (case_type == 'fullwidth') {
+	} else if (case_type === 'camel') {
+		text = changeCase.camelCase(text, { mergeAmbiguousCharacters: mergeAmbiguousCharactersSetting });
+	} else if (case_type === 'kebab') {
+		text = changeCase.kebabCase(text);
+	} else if (case_type === 'snake') {
+		text = changeCase.snakeCase(text);
+	} else if (case_type === 'pascal') {
+		text = changeCase.pascalCase(text, { mergeAmbiguousCharacters: mergeAmbiguousCharactersSetting });
+	} else if (case_type === 'pascalsnake') {
+		text = changeCase.pascalSnakeCase(text);
+	} else if (case_type === 'dot') {
+		text = changeCase.dotCase(text);
+	} else if (case_type === 'path') {
+		text = changeCase.pathCase(text);
+	} else if (case_type === 'constant') {
+		text = changeCase.constantCase(text);
+	} else if (case_type === 'train') {
+		text = changeCase.trainCase(text);
+	} else if (case_type === 'fullwidth') {
 		text = toFullWidth(text);
-	} else if (case_type == 'halfwidth') {
+	} else if (case_type === 'halfwidth') {
 		text = toHalfWidth(text);
 	}
-	lastSelectedText = text;
+	return text;
+}
 
-	if (text == origText) {
-		return false;
-	}
-
+async function applyCase(text: string): Promise<void> {
 	await joplin.commands.execute('editor.execCommand', {
 		name: 'replaceAndKeepSelection',
 		args: [text]
@@ -80,7 +279,62 @@ async function applyCase(case_type: string): Promise<boolean> {
 	if (await joplin.commands.execute('selectedText') !== text) {
 		await joplin.commands.execute('replaceSelection', text);
 	}
-	return true;
+}
+
+async function performCaseTransformationOnSelectedTextAndApply(case_type: string): Promise<void> {
+	const selectedText = await joplin.commands.execute('selectedText');
+
+	let newText = await transformCaseOfCurSelection(case_type);
+	newText = preserveSpecialCharactersFromBoundariesOfInitialText(selectedText, newText);
+
+	await applyCase(newText);
+}
+
+/**
+ * Preserves the leading and trailing special characters from the initial text
+ * while applying them to the transformed text's core content.
+ *
+ * This function ensures that the transformed text retains the exact sequence
+ * of special characters (e.g., spaces, tabs, newlines, Unicode spaces) from
+ * the beginning and end of the initial text. It does this by:
+ * 1. Extracting the leading and trailing special character sequences from the initial text.
+ * 2. Removing any leading and trailing special characters from the transformed text to isolate its core content.
+ * 3. Combining the initial text's leading sequence, the transformed text's core, and the initial text's trailing sequence.
+ *
+ * @param initialText - The original string from which leading and trailing special characters are extracted.
+ * @param transformedText - The string that has been modified or transformed, potentially with different leading and
+ * trailing special characters.
+ * @returns A new string with the initial text's leading special characters, the transformed text's core content, and the
+ * initial text's trailing special characters.
+ */
+function preserveSpecialCharactersFromBoundariesOfInitialText(initialText: string, transformedText: string): string {
+	if (!initialText?.trim() || !transformedText?.trim()) {
+		return '';
+	}
+
+	const specialCharsArray = [
+		' ', '\t', '\n', '\r', '\v', '\f',
+		'\u00A0',
+		'\u2000', '\u2001', '\u2002', '\u2003', '\u2004', '\u2005',
+		'\u2006', '\u2007', '\u2008', '\u2009', '\u200A',
+		'\u200B', '\u200C', '\u200D', '\u200E', '\u200F',
+		'\uFEFF'
+	];
+	const specialChars = specialCharsArray.join('');
+	const leadingRegex = new RegExp(`^[${specialChars}]+`);
+	const trailingRegex = new RegExp(`[${specialChars}]+$`);
+
+	// Extract leading and trailing sequences from initialText
+	const leadingMatch = initialText.match(leadingRegex);
+	const leadingSeq = leadingMatch ? leadingMatch[0] : '';
+	const trailingMatch = initialText.match(trailingRegex);
+	const trailingSeq = trailingMatch ? trailingMatch[0] : '';
+
+	// Remove leading and trailing special characters from transformedText to get core text
+	const coreText = transformedText.replace(leadingRegex, '').replace(trailingRegex, '');
+
+	// Combine initialText's leading sequence, transformedText's core, and initialText's trailing sequence
+	return leadingSeq + coreText + trailingSeq;
 }
 
 async function toTitleCase(text: string): Promise<string> {
@@ -148,11 +402,57 @@ function toHalfWidth(text: string): string {
 	return ret
 }
 
+/**
+ * Runs both CodeMirror 6 & TinyMCE editor commands to undo the recent change.
+ * Depending on active editor - one of the commands should work and other one is ignored.
+ */
+async function undoEditorChange() {
+	// CM 6
+	await joplin.commands.execute('editor.undo');
+	// TinyMCE
+	await joplin.commands.execute('editor.execCommand', {
+		name: 'Undo',
+		args: [],
+		ui: false,
+		value: '',
+	});
+}
+
+/**
+ * Synchronously waits for selected text in editor to change, or until `timeoutMs` elapses.
+ * @param selectedTextIn text that current selection is compared to;
+ * @param pollIntervalMs how frequent should method call Joplin Plugin API `selectedText` function.
+ * @param timeoutMs how long to wait for selected text change before throwing reject.
+ * @returns newly changed selected text.
+ * @throws reject if selected text hasn't changed in time passed in `timeoutMs` parameter.
+ */
+function waitForSelectedTextToChange(
+	selectedTextIn: string,
+	pollIntervalMs = 50,
+	timeoutMs = 2000
+): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const start = performance.now();
+
+		const tick = async () => {
+			const newSelectedText = await joplin.commands.execute('selectedText');
+			if (newSelectedText !== selectedTextIn) {
+				resolve(newSelectedText);
+			} else if (performance.now() - start >= timeoutMs) {
+				return reject(new Error(`Timeout after ${timeoutMs} ms`));
+			} else {
+				setTimeout(tick, pollIntervalMs);
+			}
+		};
+
+		tick();
+	});
+}
+
 joplin.plugins.register({
 	onStart: async function() {
 		joplin.commands.register({
 			name: 'suitcase.swap',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			iconName: 'fas fa-suitcase',
 			label: 'Swap case',
 			execute: async () => {
@@ -161,15 +461,20 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.lower',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'lower case',
 			execute: async () => {
-				applyCase('lower');
+				performCaseTransformationOnSelectedTextAndApply('lower');
 			}
 		});
 		joplin.commands.register({
 			name: 'suitcase.upper',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
+			label: 'UPPER CASE',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('upper');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.uppernochars',
 			label: 'UPPER CASE',
 			execute: async () => {
 				applyCase('upper');
@@ -177,34 +482,107 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.title',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'Title Case',
 			execute: async () => {
-				applyCase('title');
+				performCaseTransformationOnSelectedTextAndApply('title');
 			}
 		});
 		joplin.commands.register({
 			name: 'suitcase.sentence',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'Sentence case',
 			execute: async () => {
-				applyCase('sentence');
+				performCaseTransformationOnSelectedTextAndApply('sentence');
 			}
 		});
 		joplin.commands.register({
 			name: 'suitcase.fullwidth',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'ｆｕｌｌｗｉｄｔｈ',
 			execute: async () => {
-				applyCase('fullwidth');
+				performCaseTransformationOnSelectedTextAndApply('fullwidth');
 			}
 		});
 		joplin.commands.register({
 			name: 'suitcase.halfwidth',
-			enabledCondition: 'markdownEditorPaneVisible || richTextEditorVisible',
 			label: 'halfwidth',
 			execute: async () => {
-				applyCase('halfwidth');
+				performCaseTransformationOnSelectedTextAndApply('halfwidth');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.uppernochars',
+			label: 'UPPER CASE NO CONNECTING CHARACTERS',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('uppernochars');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.no',
+			label: 'no case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('no');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.camel',
+			label: 'camelCase',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('camel');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.kebab',
+			label: 'kebab-case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('kebab');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.snake',
+			label: 'snake_case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('snake');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.pascalsnake',
+			label: 'Pascal_Snake',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('pascalsnake');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.pascal',
+			label: 'PascalCase',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('pascal');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.dot',
+			label: 'dot.case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('dot');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.path',
+			label: 'path/case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('path');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.constant',
+			label: 'CONSTANT_CASE',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('constant');
+			}
+		});
+		joplin.commands.register({
+			name: 'suitcase.train',
+			label: 'Train-Case',
+			execute: async () => {
+				performCaseTransformationOnSelectedTextAndApply('train');
 			}
 		});
 		await joplin.views.menus.create('suitcaseMenu', 'Capitalization', [
@@ -243,6 +621,17 @@ joplin.plugins.register({
 			  commandName: 'suitcase.halfwidth',
 			  accelerator: 'CmdOrCtrl+Alt+Shift+H',
 			},
+			{ label: 'no case', commandName: 'suitcase.no' },
+			{ label: 'UPPER NO CONNECTING CHARACTERS', commandName: 'suitcase.uppernochars' },
+			{ label: 'camelCase', commandName: 'suitcase.camel' },
+			{ label: 'kebab-case', commandName: 'suitcase.kebab' },
+			{ label: 'snake_case', commandName: 'suitcase.snake' },
+			{ label: 'PascalCase', commandName: 'suitcase.pascal' },
+			{ label: 'Pascal_Snake', commandName: 'suitcase.pascalsnake' },
+			{ label: 'dot.case', commandName: 'suitcase.dot' },
+			{ label: 'path/case', commandName: 'suitcase.path' },
+			{ label: 'CONSTANT_CASE', commandName: 'suitcase.constant' },
+			{ label: 'Train-Case', commandName: 'suitcase.train' },
 		  ], MenuItemLocation.Edit);
 
 		joplin.settings.registerSection('suitcase', {
@@ -258,7 +647,172 @@ joplin.plugins.register({
 				public: true,
 				label: 'Always lowercase text first',
 				description: 'When enabled, text will always be lowercased before applying the selected case. Default: true',
-			}
+			},
+			'merge_ambiguous_characters': {
+				value: false,
+				type: SettingItemType.Bool,
+				section: 'suitcase',
+				public: true,
+				label: 'Merge ambiguous characters',
+				description: 'By default, camelCase and PascalCase separate ambiguous characters with _. For example, V1.2 would become V1_2 instead of V12. If you prefer them merged you can set this setting to true.',
+			},
+			'case_original_order': {
+				value: -9999999,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: false,
+				label: 'Swap case: Order for applying original version of selected text. Non-modifiable to user. Should be first so that when user have not found right case - they are back to original one in the end of cycle.'
+			},
+			'case_lower_order': {
+				value: 10,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for lower case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_no_order': {
+				value: 20,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for no case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_upper_order': {
+				value: 30,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for UPPER CASE',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_uppernochars_order': {
+				value: 40,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for UPPER NO CONNECTING CHARACTERS CASE',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_title_order': {
+				value: 50,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for Title Case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_sentence_order': {
+				value: 60,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for Sentence case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_camel_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for camelCase',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_kebab_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for kebab-case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_snake_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for snake_case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_pascalsnake_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for Pascal_Case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_constant_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for CONSTANT_CASE',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_dot_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for dot.case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_pascal_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for PascalCase',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_path_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for path/case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
+			'case_train_order': {
+				value: -1,
+				minimum: -1,
+				step: 1,
+				type: SettingItemType.Int,
+				section: 'suitcase',
+				public: true,
+				label: 'Swap case: Order for Train-Case',
+				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
+			},
 		});
 
 		joplin.commands.register({
