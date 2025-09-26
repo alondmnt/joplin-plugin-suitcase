@@ -42,11 +42,17 @@ Each case can be associated with **keyboard shortcut** in Joplin settings.
 
 Only the following options are enabled by **default**: lower case, UPPER CASE, Title Case & Sentence case.
 
-### 🔤 Sort Lines in a Case-Insensitive Manner
+### 🔤 Sort Lines in a Case-Insensitive, Block-Aware Manner
 
-You can sort lines of selected text in a case-insensitive manner through right-click option, or by calling a command.
+You can sort lines of selected text in a case-insensitive manner through the right-click option, from the Edit menu, or by calling the command (`Cmd/Ctrl + Alt + Shift + A`).
 
-Command can be associated with **keyboard shortcut** in Joplin settings
+By default the sorter keeps indented lines attached to their parent, so nested bullets or subtasks move as one unit:
+
+![block-sort](img/block-sort.gif)
+
+Prefer a strict line-by-line sort? Disable **Sort indented lines as blocks** in the Suitcase settings section.
+
+Command can be associated with **keyboard shortcut** in Joplin settings.
 
 #### Example
 
