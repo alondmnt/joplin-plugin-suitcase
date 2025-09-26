@@ -48,7 +48,7 @@ You can sort lines of selected text in a case-insensitive manner through the rig
 
 By default the sorter keeps indented lines attached to their parent, so nested bullets or subtasks move as one unit:
 
-![block-sort](img/block-sort.gif)
+![block-sort](images/block-sort.gif)
 
 Prefer a strict line-by-line sort? Disable **Sort indented lines as blocks** in the Suitcase settings section.
 
