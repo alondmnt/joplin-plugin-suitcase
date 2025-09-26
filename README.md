@@ -42,7 +42,7 @@ Each case can be associated with **keyboard shortcut** in Joplin settings.
 
 Only the following options are enabled by **default**: lower case, UPPER CASE, Title Case & Sentence case.
 
-### 🔤 Sort Lines in a Case-Insensitive, Block-Aware Manner
+### 🔤 Sort Lines in a Case-Insensitive, Nesting-Aware Manner
 
 You can sort lines of selected text in a case-insensitive manner through the right-click option, from the Edit menu, or by calling the command (`Cmd/Ctrl + Alt + Shift + A`).
 
