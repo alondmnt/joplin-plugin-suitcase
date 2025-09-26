@@ -517,7 +517,7 @@ joplin.plugins.register({
 		});
 		joplin.commands.register({
 			name: 'suitcase.no',
-			label: 'no case',
+			label: 'lower case no connecting characters',
 			execute: async () => {
 				performCaseTransformationOnSelectedTextAndApply('no');
 			}
@@ -621,7 +621,7 @@ joplin.plugins.register({
 			  commandName: 'suitcase.halfwidth',
 			  accelerator: 'CmdOrCtrl+Alt+Shift+H',
 			},
-			{ label: 'no case', commandName: 'suitcase.no' },
+			{ label: 'lower case no connecting characters', commandName: 'suitcase.no' },
 			{ label: 'UPPER NO CONNECTING CHARACTERS', commandName: 'suitcase.uppernochars' },
 			{ label: 'camelCase', commandName: 'suitcase.camel' },
 			{ label: 'kebab-case', commandName: 'suitcase.kebab' },
@@ -680,7 +680,7 @@ joplin.plugins.register({
 				type: SettingItemType.Int,
 				section: 'suitcase',
 				public: true,
-				label: 'Swap case: Order for no case',
+				label: 'Swap case: Order for lower case no connecting characters',
 				description: 'Order in scope of "Swap case" command (-1 to disable). Must be unique unless -1.',
 			},
 			'case_upper_order': {

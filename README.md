@@ -15,7 +15,7 @@ In the menu `Edit --> Capitalization` you will find many commands that can be ap
 - Sentence case
 - ｆｕｌｌｗｉｄｔｈ
 - halfwidth
-- no case
+- lower case no connecting characters
 - UPPER CASE NO CONNECTING CHARACTERS
 - camelCase
 - kebab-case
