@@ -822,7 +822,8 @@ joplin.plugins.register({
 				sortSelectedLines();
 			}
 		});
-		await joplin.views.menuItems.create('suitcaseSort', 'suitcase.sort', MenuItemLocation.EditorContextMenu, { accelerator: 'CmdOrCtrl+Alt+Shift+A' });
+		await joplin.views.menuItems.create('suitcaseSort', 'suitcase.sort', MenuItemLocation.Edit, { accelerator: 'CmdOrCtrl+Alt+Shift+A' });
+		await joplin.views.menuItems.create('suitcaseSortContext', 'suitcase.sort', MenuItemLocation.EditorContextMenu);
 		await joplin.views.toolbarButtons.create('swapCase', 'suitcase.swap', ToolbarButtonLocation.EditorToolbar);
 
 		await joplin.contentScripts.register(
