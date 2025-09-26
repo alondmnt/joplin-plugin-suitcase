@@ -640,6 +640,14 @@ joplin.plugins.register({
 		});
 
 		joplin.settings.registerSettings({
+			'sort_group_blocks': {
+				value: true,
+				type: SettingItemType.Bool,
+				section: 'suitcase',
+				public: true,
+				label: 'Sort indented lines as blocks',
+				description: 'When enabled, lines with deeper indentation stay attached to their parent while sorting. Disable to sort every line independently.',
+			},
 			'always_lowercase': {
 				value: true,
 				type: SettingItemType.Bool,

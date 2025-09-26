@@ -28,7 +28,15 @@ interface BlockInfo {
     index: number;
 }
 
-function buildBlocks(lines: string[]): BlockInfo[] {
+function buildBlocks(lines: string[], groupBlocks: boolean): BlockInfo[] {
+    if (!groupBlocks) {
+        return lines.map((line, idx) => ({
+            lines: [line],
+            firstLine: line,
+            index: idx,
+        }));
+    }
+
     const baseIndent = findBaseIndent(lines);
     const blocks: BlockInfo[] = [];
 
@@ -117,6 +125,7 @@ function compareLines(a: string, b: string): number {
 }
 
 export async function sortSelectedLines(): Promise<void> {
+    const groupBlocks = (await joplin.settings.value('sort_group_blocks')) as boolean;
     const ranges = await joplin.commands.execute('editor.execCommand', {
         name: 'listSelections',
     });
@@ -139,7 +148,7 @@ export async function sortSelectedLines(): Promise<void> {
             continue;
         }
 
-        const blocks = buildBlocks(originalLines);
+        const blocks = buildBlocks(originalLines, groupBlocks);
         blocks.sort((a, b) => {
             const lineCompare = compareLines(a.firstLine, b.firstLine);
             if (lineCompare !== 0) {
