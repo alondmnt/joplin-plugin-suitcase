@@ -1,3 +1,15 @@
+# [v0.5.0](https://github.com/alondmnt/joplin-plugin-suitcase/releases/tag/v0.5.0)
+*Released on 2025-09-26T07:21:56Z*
+
+- new: many additional case variations added (camelCase, snake_case, PascalCase, etc.), configurable in settings (#5 by @executed)
+- new: nesting-aware sorting option to keep indented lines and subtasks grouped (see settings)
+- improved: command now works reliably in Rich Text Editor, with better undo/redo behavior and preserved selection (#5 by @executed)
+- improve: register sort command in the Edit menu
+
+**Full Changelog**: https://github.com/alondmnt/joplin-plugin-suitcase/compare/v0.4.0...v0.5.0
+
+---
+
 # [v0.4.0](https://github.com/alondmnt/joplin-plugin-suitcase/releases/tag/v0.4.0)
 *Released on 2025-04-21T14:13:34Z*
 
@@ -6,7 +18,7 @@
 - new: toolbar button `Swap case`
 - new: setting: Swap reset interval (seconds)
 - new: keep text selection after editing
-- changed: default setting
+- changed: setting: Always lowercase text first, default is enabled
 
 **Full Changelog**: https://github.com/alondmnt/joplin-plugin-suitcase/compare/v0.3.3...v0.4.0
 
